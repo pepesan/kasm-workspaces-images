@@ -1,0 +1,136 @@
+ARG BASE_TAG="develop"
+ARG BASE_IMAGE="core-ubuntu-noble"
+FROM kasmweb/$BASE_IMAGE:$BASE_TAG
+
+USER root
+
+ENV HOME /home/kasm-default-profile
+ENV STARTUPDIR /dockerstartup
+WORKDIR $HOME
+
+### Envrionment config 
+ENV DEBIAN_FRONTEND=noninteractive \
+    SKIP_CLEAN=true \
+    KASM_RX_HOME=$STARTUPDIR/kasmrx \
+    DONT_PROMPT_WSL_INSTALL="No_Prompt_please" \
+    INST_DIR=$STARTUPDIR/install \
+    INST_SCRIPTS="/ubuntu/install/tools/install_tools_deluxe.sh \
+                  /ubuntu/install/misc/install_tools.sh \
+                  /ubuntu/install/chrome/install_chrome.sh \
+                  /ubuntu/install/chromium/install_chromium.sh"
+
+# Copy install scripts
+COPY ./src/ $INST_DIR
+
+# Run installations
+RUN \
+  for SCRIPT in $INST_SCRIPTS; do \
+    bash ${INST_DIR}${SCRIPT} || exit 1; \
+  done && \
+  $STARTUPDIR/set_user_permission.sh $HOME && \
+  rm -f /etc/X11/xinit/Xclients && \
+  chown 1000:0 $HOME && \
+  mkdir -p /home/kasm-user && \
+  chown -R 1000:0 /home/kasm-user && \
+  rm -Rf ${INST_DIR}
+
+# Run upgrades
+RUN \
+    apt update && \
+    apt upgrade -y
+
+# Instalar Firefox desde repositorio oficial Mozilla (no snap)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      wget \
+      curl \
+      ca-certificates && \
+    install -d -m 0755 /etc/apt/keyrings && \
+    wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg \
+      -O /etc/apt/keyrings/packages.mozilla.org.asc && \
+    echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" \
+      > /etc/apt/sources.list.d/mozilla.list && \
+    echo 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000' \
+      > /etc/apt/preferences.d/mozilla && \
+    apt-get update && \
+    apt-get install -y firefox && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Instalar IntelliJ IDEA 2026.1.1
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends wget curl tar && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN LATEST=$(curl -s "https://data.services.jetbrains.com/products/releases?code=IIC&latest=true&type=release" \
+      | grep -oP '"linux":.*?"link":"\K[^"]+' | head -1) && \
+    wget -q "${LATEST}" -O /tmp/intellij.tar.gz && \
+    tar -xzf /tmp/intellij.tar.gz -C /opt && \
+    mv /opt/idea-IC-* /opt/intellij && \
+    rm /tmp/intellij.tar.gz && \
+    ln -s /opt/intellij/bin/idea.sh /usr/local/bin/idea
+
+# Acceso directo en el escritorio
+RUN mkdir -p /home/kasm-default-profile/Desktop && \
+    printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=IntelliJ IDEA\nExec=/opt/intellij/bin/idea.sh\nIcon=/opt/intellij/bin/idea.png\nTerminal=false\nCategories=Development;IDE;\n' \
+    > /home/kasm-default-profile/Desktop/intellij.desktop && \
+    chmod +x /home/kasm-default-profile/Desktop/intellij.desktop && \
+    chown -R 1000:0 /home/kasm-default-profile/Desktop
+
+# ====== INSTALAR OWASP ZAP ======
+# Requiere Java 17+ (ya incluido en la imagen base de Kasm)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends default-jre wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN ZAP_VERSION=$(curl -s https://api.github.com/repos/zaproxy/zaproxy/releases/latest \
+      | grep -oP '"tag_name": "\Kv[^"]+' | sed 's/v//') && \
+    wget -q "https://github.com/zaproxy/zaproxy/releases/download/v${ZAP_VERSION}/ZAP_${ZAP_VERSION}_Linux.tar.gz" \
+      -O /tmp/zap.tar.gz && \
+    tar -xzf /tmp/zap.tar.gz -C /opt && \
+    mv /opt/ZAP_${ZAP_VERSION} /opt/zaproxy && \
+    rm /tmp/zap.tar.gz && \
+    ln -s /opt/zaproxy/zap.sh /usr/local/bin/zaproxy
+
+# Acceso directo en el escritorio
+RUN printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=OWASP ZAP\nExec=/opt/zaproxy/zap.sh\nIcon=/opt/zaproxy/zap.png\nTerminal=false\nCategories=Security;\n' \
+    > /home/kasm-default-profile/Desktop/owasp-zap.desktop && \
+    chmod +x /home/kasm-default-profile/Desktop/owasp-zap.desktop && \
+    chown -R 1000:0 /home/kasm-default-profile/Desktop
+# ================================
+
+# Clonar repositorio de ejemplos
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/pepesan/spring-boot-ejemplos-basicos-ciberseguridad.git \
+    /home/kasm-default-profile/spring-boot-ejemplos-basicos-ciberseguridad && \
+    chown -R 1000:0 /home/kasm-default-profile/spring-boot-ejemplos-basicos-ciberseguridad
+
+
+# ====== CLEANUP ======
+RUN bash ${INST_DIR}/ubuntu/install/cleanup/cleanup.sh 2>/dev/null || \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# ================================================================
+
+### ====== CONTRASEÑA PERSONALIZADA ======
+ARG USER_PASSWORD=kasm
+RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true && \
+    echo "kasm-user:${USER_PASSWORD}" | chpasswd && \
+    echo "root:${USER_PASSWORD}" | chpasswd && \
+    usermod -aG sudo kasm-user
+
+ENV VNC_PW=${USER_PASSWORD}
+### =======================================
+
+# Userspace Runtime
+ENV HOME /home/kasm-user
+WORKDIR $HOME
+USER 1000
+
+CMD ["--tail-log"]

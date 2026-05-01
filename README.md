@@ -1,4 +1,22 @@
 ![Logo][logo]
+
+## Repositorio Clonado de Kasm Workspaces
+
+Se ha creado una nueva imagen para ser utilizada dentro del Kasm Workspaces platform.  
+Esta imagen se ha creado utilizando el Workspaces Core Image de Ubuntu 24.04 y se 
+ha personalizado para incluir Intellij, Firefox y OWASP Zap.
+Se ha metido un repositorio de ejemplos de ciberseguridad para que los usuarios 
+puedan practicar y aprender a usar las herramientas incluidas en la imagen.
+Así como se ha modificado la contraseña por defecto permitir hacer sudo.
+
+dockerfile-kasm-ubuntu-noble-desktop-custom
+
+También se han creado unas serie de scripts para facilitar 
+la creación de la imagen personalizada, su subida a Docker Hub y su 
+prueba en local.
+
+Así como las instrucciones para su uso dentro del Kasm Workspaces platform y de forma manual.
+
 # Workspaces Images
 This repository contains several example of desktop and application Workspaces images.
 Administrators may leverage these images directly or use them as a starting point for their own custom images.
