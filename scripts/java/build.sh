@@ -31,7 +31,7 @@ echo ""
 
 # Ir a la raíz del proyecto (un nivel arriba de scripts/)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}/.."
+cd "${SCRIPT_DIR}/../.."
 
 # Construir
 docker build \

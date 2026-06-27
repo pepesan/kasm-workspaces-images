@@ -6,7 +6,7 @@ set -e
 # CONFIGURACIÓN - Edita estos valores
 # ============================================
 DOCKER_USER="pepesan"
-IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-noble-kasm"
+IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-noble-kasm-go"
 IMAGE_TAG="1.0"
 # ============================================
 
@@ -16,9 +16,9 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${YELLOW}==============================${NC}"
-echo -e "${YELLOW}  Subiendo imagen a Docker Hub ${NC}"
-echo -e "${YELLOW}==============================${NC}"
+echo -e "${YELLOW}================================${NC}"
+echo -e "${YELLOW}  Subiendo imagen Go a Docker Hub${NC}"
+echo -e "${YELLOW}================================${NC}"
 echo ""
 echo -e "  Imagen: ${GREEN}${IMAGE_NAME}:${IMAGE_TAG}${NC}"
 echo ""
@@ -26,7 +26,7 @@ echo ""
 # Verificar que la imagen existe localmente
 if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" &>/dev/null; then
   echo -e "${RED}✘ Imagen no encontrada: ${IMAGE_NAME}:${IMAGE_TAG}${NC}"
-  echo -e "${YELLOW}  Ejecuta primero: ./scripts/build.sh${NC}"
+  echo -e "${YELLOW}  Ejecuta primero: ./scripts/go/build.sh${NC}"
   exit 1
 fi
 

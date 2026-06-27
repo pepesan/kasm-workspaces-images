@@ -27,7 +27,7 @@ echo ""
 # Verificar que la imagen existe localmente
 if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" &>/dev/null; then
   echo -e "${RED}✘ Imagen no encontrada: ${IMAGE_NAME}:${IMAGE_TAG}${NC}"
-  echo -e "${YELLOW}  Ejecuta primero: ./scripts/build.sh${NC}"
+  echo -e "${YELLOW}  Ejecuta primero: ./scripts/java/build.sh${NC}"
   exit 1
 fi
 
