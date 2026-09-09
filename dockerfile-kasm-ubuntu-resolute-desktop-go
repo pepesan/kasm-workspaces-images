@@ -1,0 +1,157 @@
+ARG BASE_TAG="1.0"
+ARG BASE_IMAGE="pepesan/core-ubuntu-resolute"
+FROM $BASE_IMAGE:$BASE_TAG
+
+USER root
+
+ENV HOME /home/kasm-default-profile
+ENV STARTUPDIR /dockerstartup
+WORKDIR $HOME
+
+### Envrionment config
+ENV DEBIAN_FRONTEND=noninteractive \
+    SKIP_CLEAN=true \
+    KASM_RX_HOME=$STARTUPDIR/kasmrx \
+    DONT_PROMPT_WSL_INSTALL="No_Prompt_please" \
+    INST_DIR=$STARTUPDIR/install \
+    INST_SCRIPTS="/ubuntu/install/tools/install_tools_deluxe.sh \
+                  /ubuntu/install/misc/install_tools.sh \
+                  /ubuntu/install/chrome/install_chrome.sh \
+                  /ubuntu/install/chromium/install_chromium.sh \
+                  /ubuntu/install/vs_code/install_vs_code.sh"
+
+# Copy install scripts
+COPY ./src/ $INST_DIR
+
+# Run installations
+RUN \
+  for SCRIPT in $INST_SCRIPTS; do \
+    bash ${INST_DIR}${SCRIPT} || exit 1; \
+  done && \
+  $STARTUPDIR/set_user_permission.sh $HOME && \
+  rm -f /etc/X11/xinit/Xclients && \
+  chown 1000:0 $HOME && \
+  mkdir -p /home/kasm-user && \
+  chown -R 1000:0 /home/kasm-user && \
+  rm -Rf ${INST_DIR}
+
+# Run upgrades
+RUN \
+    apt update && \
+    apt upgrade -y
+
+# Instalar Firefox desde repositorio oficial Mozilla (no snap)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      wget \
+      curl \
+      ca-certificates && \
+    install -d -m 0755 /etc/apt/keyrings && \
+    wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg \
+      -O /etc/apt/keyrings/packages.mozilla.org.asc && \
+    echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" \
+      > /etc/apt/sources.list.d/mozilla.list && \
+    echo 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000' \
+      > /etc/apt/preferences.d/mozilla && \
+    apt-get update && \
+    apt-get install -y firefox && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# ====== INSTALAR GO ======
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends wget curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN GOVERSION=$(curl -s https://go.dev/VERSION?m=text | head -1) && \
+    ARCH=$(arch | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
+    wget -q "https://go.dev/dl/${GOVERSION}.linux-${ARCH}.tar.gz" -O /tmp/go.tar.gz && \
+    rm -rf /usr/local/go && \
+    tar -C /usr/local -xzf /tmp/go.tar.gz && \
+    rm /tmp/go.tar.gz
+
+ENV GOROOT=/usr/local/go
+ENV GOPATH=/home/kasm-user/go
+ENV PATH=$PATH:/usr/local/go/bin:/home/kasm-user/go/bin
+# =========================
+
+# Instalar extensión oficial de Go en VS Code (para el perfil por defecto)
+RUN mkdir -p /home/kasm-default-profile/.vscode/extensions && \
+    HOME=/home/kasm-default-profile code --install-extension golang.go \
+      --no-sandbox \
+      --extensions-dir /home/kasm-default-profile/.vscode/extensions \
+      --user-data-dir /home/kasm-default-profile/.vscode/user-data 2>/dev/null || true && \
+    chown -R 1000:0 /home/kasm-default-profile/.vscode
+
+# ====== INSTALAR GOLAND ======
+RUN LATEST=$(curl -s "https://data.services.jetbrains.com/products/releases?code=GO&latest=true&type=release" \
+      | grep -oP '"linux":.*?"link":"\K[^"]+' | head -1) && \
+    wget -q "${LATEST}" -O /tmp/goland.tar.gz && \
+    tar -xzf /tmp/goland.tar.gz -C /opt && \
+    mv /opt/GoLand-* /opt/goland && \
+    rm /tmp/goland.tar.gz && \
+    ln -s /opt/goland/bin/goland.sh /usr/local/bin/goland
+
+# Acceso directo en el escritorio
+RUN mkdir -p /home/kasm-default-profile/Desktop && \
+    printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=GoLand\nExec=/opt/goland/bin/goland.sh\nIcon=/opt/goland/bin/goland.png\nTerminal=false\nCategories=Development;IDE;\n' \
+    > /home/kasm-default-profile/Desktop/goland.desktop && \
+    chmod +x /home/kasm-default-profile/Desktop/goland.desktop && \
+    chown -R 1000:0 /home/kasm-default-profile/Desktop
+# =============================
+
+# Clonar repositorio de ejemplos Go
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://gitlab.com/pepesan/ejemplos-go-2026.git \
+    /home/kasm-default-profile/ejemplos-go-2026 && \
+    chown -R 1000:0 /home/kasm-default-profile/ejemplos-go-2026
+
+# ====== INSTALAR MARIADB ======
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends mariadb-server mariadb-client && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Inicializar datos y crear BD/usuario de desarrollo
+RUN mysql_install_db --user=mysql --basedir=/usr --datadir=/var/lib/mysql && \
+    mysqld_safe --skip-networking --skip-grant-tables & \
+    sleep 3 && \
+    mysql -u root -e "FLUSH PRIVILEGES; \
+      ALTER USER 'root'@'localhost' IDENTIFIED BY 'kasm'; \
+      CREATE DATABASE IF NOT EXISTS desarrollo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; \
+      CREATE USER IF NOT EXISTS 'dev'@'localhost' IDENTIFIED BY 'dev'; \
+      GRANT ALL PRIVILEGES ON desarrollo.* TO 'dev'@'localhost'; \
+      FLUSH PRIVILEGES;" && \
+    kill $(pgrep mysqld) || true
+
+# Arranque automático via supervisord (gestor de procesos de Kasm)
+RUN printf '[program:mariadb]\ncommand=/usr/bin/mysqld_safe\nautostart=true\nautorestart=true\nuser=mysql\nstdout_logfile=/var/log/mariadb.log\nstderr_logfile=/var/log/mariadb.log\n' \
+    > /etc/supervisor/conf.d/mariadb.conf
+# ==============================
+
+# ====== CLEANUP ======
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# =====================
+
+### ====== CONTRASEÑA PERSONALIZADA ======
+ARG USER_PASSWORD=kasm
+RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true && \
+    echo "kasm-user:${USER_PASSWORD}" | chpasswd && \
+    echo "root:${USER_PASSWORD}" | chpasswd && \
+    usermod -aG sudo kasm-user
+
+ENV VNC_PW=${USER_PASSWORD}
+### =======================================
+
+# Userspace Runtime
+ENV HOME /home/kasm-user
+WORKDIR $HOME
+USER 1000
+
+CMD ["--tail-log"]

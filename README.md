@@ -17,6 +17,59 @@ prueba en local.
 
 Así como las instrucciones para su uso dentro del Kasm Workspaces platform y de forma manual.
 
+# Custom Desktop Images (Java, Go, Python)
+
+On top of the base Kasm images, this repo builds three ready-to-use developer
+desktops — one per stack — each shipped in two variants: on **Ubuntu 24.04
+(Noble)**, using Kasm's official base image, and an experimental copy on
+**Ubuntu 26.04 (Resolute)**, since Kasm has not published an official base
+image for that Ubuntu release yet. The Resolute variants build on top of
+[`pepesan/core-ubuntu-resolute`](https://hub.docker.com/r/pepesan/core-ubuntu-resolute),
+produced from a fork of Kasm's own base-image build,
+[`pepesan/workspaces-core-images`](https://github.com/pepesan/workspaces-core-images).
+
+| Stack | Noble Dockerfile | Resolute Dockerfile | IDE | Extras |
+|---|---|---|---|---|
+| Java / security | `dockerfile-kasm-ubuntu-noble-desktop-custom` | `dockerfile-kasm-ubuntu-resolute-desktop-custom` | IntelliJ IDEA (latest) | OWASP ZAP, Firefox, example repo |
+| Go | `dockerfile-kasm-ubuntu-noble-desktop-go` | `dockerfile-kasm-ubuntu-resolute-desktop-go` | GoLand (latest) | Go toolchain, MariaDB, VS Code + Go extension, example repo |
+| Python | `dockerfile-kasm-ubuntu-noble-desktop-python` | `dockerfile-kasm-ubuntu-resolute-desktop-python` | PyCharm (latest) | pip/venv/pipx/uv, MariaDB drivers, VS Code + Python extension, example repos |
+
+## JetBrains "latest" IDE downloads
+
+Each Dockerfile fetches the latest IDE release straight from JetBrains' API
+(`data.services.jetbrains.com/products/releases`) at build time, so rebuilding
+later always picks up the newest version. One catch worth knowing: JetBrains
+stopped publishing separate "Community Edition" builds for IntelliJ IDEA
+(`code=IIC`) and PyCharm (`code=PCC`) in December 2025 — that feed is frozen at
+`2025.3`. The actively maintained feed is the unified build, queried as
+`code=IIU` (IntelliJ) and `code=PCP` (PyCharm); that is what these Dockerfiles
+use, with an extraction glob (`idea-*`, `pycharm-*`) that doesn't assume an
+edition suffix. GoLand (`code=GO`) never had a separate Community edition, so
+it needed no change.
+
+## Scripts
+
+Each image has a matching `scripts/<stack>` folder (and `scripts/<stack>-resolute`
+for the Ubuntu 26.04 variant) with the same five commands: `build.sh`, `run.sh`,
+`stop.sh`, `destroy.sh`, `push.sh`. Run them from the repo root, e.g.:
+
+```bash
+./scripts/python/build.sh          # Noble, Python
+./scripts/python-resolute/build.sh # Resolute, Python
+```
+
+| Folder | Image | Port (`run.sh`) |
+|---|---|---|
+| `scripts/java` | `pepesan/mi-ubuntu-noble-kasm` | 6901 |
+| `scripts/go` | `pepesan/mi-ubuntu-noble-kasm-go` | 6902 |
+| `scripts/python` | `pepesan/mi-ubuntu-noble-kasm-python` | 6903 |
+| `scripts/java-resolute` | `pepesan/mi-ubuntu-resolute-kasm` | 6910 |
+| `scripts/go-resolute` | `pepesan/mi-ubuntu-resolute-kasm-go` | 6911 |
+| `scripts/python-resolute` | `pepesan/mi-ubuntu-resolute-kasm-python` | 6912 |
+
+Each folder's own `README.md` has the full detail (credentials, MariaDB
+connection strings, Python env tooling, etc.).
+
 # Workspaces Images
 This repository contains several example of desktop and application Workspaces images.
 Administrators may leverage these images directly or use them as a starting point for their own custom images.

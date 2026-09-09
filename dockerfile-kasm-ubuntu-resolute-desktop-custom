@@ -1,6 +1,6 @@
-ARG BASE_TAG="develop"
-ARG BASE_IMAGE="core-ubuntu-noble"
-FROM kasmweb/$BASE_IMAGE:$BASE_TAG
+ARG BASE_TAG="1.0"
+ARG BASE_IMAGE="pepesan/core-ubuntu-resolute"
+FROM $BASE_IMAGE:$BASE_TAG
 
 USER root
 
@@ -8,7 +8,7 @@ ENV HOME /home/kasm-default-profile
 ENV STARTUPDIR /dockerstartup
 WORKDIR $HOME
 
-### Envrionment config 
+### Envrionment config
 ENV DEBIAN_FRONTEND=noninteractive \
     SKIP_CLEAN=true \
     KASM_RX_HOME=$STARTUPDIR/kasmrx \
