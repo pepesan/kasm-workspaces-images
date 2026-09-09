@@ -17,7 +17,7 @@ if [[ "${DISTRO}" == @(oracle8|rockylinux9|rockylinux8|oracle9|rhel9|almalinux9|
   dnf install -y firefox p11-kit
 elif [ "${DISTRO}" == "opensuse" ]; then
   zypper install -yn p11-kit-tools MozillaFirefox
-elif grep -q Jammy /etc/os-release || grep -q Noble /etc/os-release; then
+elif grep -q Jammy /etc/os-release || grep -q Noble /etc/os-release || grep -q Resolute /etc/os-release; then
   if [ ! -f '/etc/apt/preferences.d/mozilla-firefox' ]; then
     add-apt-repository -y ppa:mozillateam/ppa
     echo '
