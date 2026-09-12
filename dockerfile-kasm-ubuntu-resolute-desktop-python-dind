@@ -1,0 +1,183 @@
+ARG BASE_TAG="1.0"
+ARG BASE_IMAGE="pepesan/core-ubuntu-resolute"
+FROM $BASE_IMAGE:$BASE_TAG
+
+USER root
+
+ENV HOME /home/kasm-default-profile
+ENV STARTUPDIR /dockerstartup
+WORKDIR $HOME
+
+### Envrionment config
+ENV DEBIAN_FRONTEND=noninteractive \
+    SKIP_CLEAN=true \
+    KASM_RX_HOME=$STARTUPDIR/kasmrx \
+    DONT_PROMPT_WSL_INSTALL="No_Prompt_please" \
+    INST_DIR=$STARTUPDIR/install \
+    INST_SCRIPTS="/ubuntu/install/dind/install_dind_resolute.sh \
+                  /ubuntu/install/tools/install_tools_deluxe.sh \
+                  /ubuntu/install/misc/install_tools.sh \
+                  /ubuntu/install/chrome/install_chrome.sh \
+                  /ubuntu/install/chromium/install_chromium.sh \
+                  /ubuntu/install/vs_code/install_vs_code.sh"
+
+# El uid 1000 de esta base ya lo ocupa "ubuntu"; install_dind_resolute.sh
+# necesita una cuenta llamada kasm-user para poder añadirla al grupo docker.
+# El useradd de más abajo (con USER_PASSWORD) no crea nada nuevo aquí porque
+# la cuenta ya existe (useradd ... || true) — solo fija la contraseña.
+RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true
+
+# Startup Scripts (soporte Docker-in-Docker)
+COPY ./src/ubuntu/install/dind/custom_startup.sh $STARTUPDIR/custom_startup.sh
+RUN chmod 755 $STARTUPDIR/custom_startup.sh
+COPY ./src/ubuntu/install/dind/dockerd.conf /etc/supervisor/conf.d/
+COPY ./src/ubuntu/install/dind/daemon.json /etc/docker/daemon.json
+
+# Copy install scripts
+COPY ./src/ $INST_DIR
+
+# Run installations
+RUN \
+  for SCRIPT in $INST_SCRIPTS; do \
+    bash ${INST_DIR}${SCRIPT} || exit 1; \
+  done && \
+  $STARTUPDIR/set_user_permission.sh $HOME && \
+  rm -f /etc/X11/xinit/Xclients && \
+  chown 1000:0 $HOME && \
+  mkdir -p /home/kasm-user && \
+  chown -R 1000:0 /home/kasm-user && \
+  rm -Rf ${INST_DIR}
+
+# Run upgrades
+RUN \
+    apt update && \
+    apt upgrade -y
+
+# Instalar Firefox desde repositorio oficial Mozilla (no snap)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      wget \
+      curl \
+      ca-certificates && \
+    install -d -m 0755 /etc/apt/keyrings && \
+    wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg \
+      -O /etc/apt/keyrings/packages.mozilla.org.asc && \
+    echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" \
+      > /etc/apt/sources.list.d/mozilla.list && \
+    echo 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000' \
+      > /etc/apt/preferences.d/mozilla && \
+    apt-get update && \
+    apt-get install -y firefox && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# ====== INSTALAR PYTHON Y HERRAMIENTAS DE ENTORNO ======
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      python3 \
+      python3-venv \
+      python3-pip \
+      python3-dev \
+      python3-pymysql \
+      python3-mariadb-connector \
+      pipx \
+      build-essential \
+      libmariadb-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Instalar uv (gestor de paquetes/entornos rápido de Astral)
+ENV UV_INSTALL_DIR=/usr/local/bin
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+ENV PATH=$PATH:/home/kasm-user/.local/bin
+# =========================================================
+
+# Instalar extensión oficial de Python en VS Code (para el perfil por defecto)
+RUN mkdir -p /home/kasm-default-profile/.vscode/extensions && \
+    HOME=/home/kasm-default-profile code --install-extension ms-python.python \
+      --no-sandbox \
+      --extensions-dir /home/kasm-default-profile/.vscode/extensions \
+      --user-data-dir /home/kasm-default-profile/.vscode/user-data 2>/dev/null || true && \
+    chown -R 1000:0 /home/kasm-default-profile/.vscode
+
+# ====== INSTALAR PYCHARM (ultima release) ======
+# Nota: JetBrains dejo de publicar builds separados para "Community" (code=PCC)
+# en diciembre de 2025; ese feed esta congelado. El build unificado activo se
+# publica bajo code=PCP y ya no usa sufijo de edicion en el nombre de carpeta.
+RUN LATEST=$(curl -s "https://data.services.jetbrains.com/products/releases?code=PCP&latest=true&type=release" \
+      | grep -oP '"linux":.*?"link":"\K[^"]+' | head -1) && \
+    wget -q "${LATEST}" -O /tmp/pycharm.tar.gz && \
+    tar -xzf /tmp/pycharm.tar.gz -C /opt && \
+    mv /opt/pycharm-* /opt/pycharm && \
+    rm /tmp/pycharm.tar.gz && \
+    ln -s /opt/pycharm/bin/pycharm.sh /usr/local/bin/pycharm
+
+# Acceso directo en el escritorio
+RUN mkdir -p /home/kasm-default-profile/Desktop && \
+    printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=PyCharm\nExec=/opt/pycharm/bin/pycharm.sh\nIcon=/opt/pycharm/bin/pycharm.png\nTerminal=false\nCategories=Development;IDE;\n' \
+    > /home/kasm-default-profile/Desktop/pycharm.desktop && \
+    chmod +x /home/kasm-default-profile/Desktop/pycharm.desktop && \
+    chown -R 1000:0 /home/kasm-default-profile/Desktop
+# =========================================
+
+# Clonar repositorios de ejemplos Python
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/pepesan/ejemplos-python.git \
+    /home/kasm-default-profile/ejemplos-python && \
+    git clone https://github.com/pepesan/machine-learning-python.git \
+    /home/kasm-default-profile/machine-learning-python && \
+    git clone https://github.com/pepesan/docker-twitch.git \
+    /home/kasm-default-profile/docker-twitch && \
+    chown -R 1000:0 /home/kasm-default-profile/ejemplos-python \
+    /home/kasm-default-profile/machine-learning-python \
+    /home/kasm-default-profile/docker-twitch
+
+# ====== INSTALAR MARIADB ======
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends mariadb-server mariadb-client && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Inicializar datos y crear BD/usuario de desarrollo
+RUN mysql_install_db --user=mysql --basedir=/usr --datadir=/var/lib/mysql && \
+    mysqld_safe --skip-networking --skip-grant-tables & \
+    sleep 3 && \
+    mysql -u root -e "FLUSH PRIVILEGES; \
+      ALTER USER 'root'@'localhost' IDENTIFIED BY 'kasm'; \
+      CREATE DATABASE IF NOT EXISTS desarrollo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; \
+      CREATE USER IF NOT EXISTS 'dev'@'localhost' IDENTIFIED BY 'dev'; \
+      GRANT ALL PRIVILEGES ON desarrollo.* TO 'dev'@'localhost'; \
+      FLUSH PRIVILEGES;" && \
+    kill $(pgrep mysqld) || true
+
+# Arranque automático via supervisord (gestor de procesos de Kasm)
+RUN printf '[program:mariadb]\ncommand=/usr/bin/mysqld_safe\nautostart=true\nautorestart=true\nuser=mysql\nstdout_logfile=/var/log/mariadb.log\nstderr_logfile=/var/log/mariadb.log\n' \
+    > /etc/supervisor/conf.d/mariadb.conf
+# ==============================
+
+# ====== CLEANUP ======
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# =====================
+
+### ====== CONTRASEÑA PERSONALIZADA ======
+ARG USER_PASSWORD=kasm
+RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true && \
+    echo "kasm-user:${USER_PASSWORD}" | chpasswd && \
+    echo "root:${USER_PASSWORD}" | chpasswd && \
+    usermod -aG sudo kasm-user
+
+ENV VNC_PW=${USER_PASSWORD}
+### =======================================
+
+# Userspace Runtime
+ENV HOME /home/kasm-user
+WORKDIR $HOME
+USER 1000
+
+CMD ["--tail-log"]
