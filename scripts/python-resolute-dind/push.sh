@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-python-dind"
-IMAGE_TAG="1.0"
+IMAGE_TAG="1.1"
 # ============================================
 
 # Colores

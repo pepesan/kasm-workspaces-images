@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"          # ← Tu username de Docker Hub
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-python-dind"
-IMAGE_TAG="1.0"
+IMAGE_TAG="1.1"
 BASE_TAG="1.0"
 BASE_IMAGE="pepesan/core-ubuntu-resolute"
 DOCKERFILE="dockerfile-kasm-ubuntu-resolute-desktop-python-dind"
