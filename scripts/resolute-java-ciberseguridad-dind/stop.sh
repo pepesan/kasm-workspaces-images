@@ -2,7 +2,7 @@
 
 set -e
 
-CONTAINER_NAME="kasm-resolute-test"
+CONTAINER_NAME="kasm-resolute-java-ciberseguridad-dind-test"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

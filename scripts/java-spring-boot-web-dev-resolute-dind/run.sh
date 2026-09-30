@@ -6,11 +6,13 @@ set -e
 # CONFIGURACIÓN - Edita estos valores
 # ============================================
 DOCKER_USER="pepesan"
-IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm"
-IMAGE_TAG="1.0"
-VNC_PASSWORD="sta3war2"
-PORT=6910
-CONTAINER_NAME="kasm-resolute-test"
+IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-java-spring-boot-web-dev-dind"
+IMAGE_TAG="1.3"
+# Contraseña VNC: NO se guarda en el repo. Exportar antes de arrancar:
+#   export KASM_USER_PASSWORD="..."   (por defecto: kasm)
+VNC_PASSWORD="${KASM_USER_PASSWORD:-kasm}"
+PORT=6917
+CONTAINER_NAME="kasm-java-spring-boot-web-dev-resolute-dind-test"
 # ============================================
 
 # Colores
@@ -19,15 +21,15 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${YELLOW}==================================${NC}"
-echo -e "${YELLOW}   Lanzando contenedor Kasm       ${NC}"
-echo -e "${YELLOW}==================================${NC}"
+echo -e "${YELLOW}=========================================================${NC}"
+echo -e "${YELLOW}  Lanzando contenedor Kasm Java Spring Boot Web Dev (Resolute) + DinD ${NC}"
+echo -e "${YELLOW}=========================================================${NC}"
 echo ""
 
 # Verificar que la imagen existe localmente
 if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" &>/dev/null; then
   echo -e "${RED}✘ Imagen no encontrada: ${IMAGE_NAME}:${IMAGE_TAG}${NC}"
-  echo -e "${YELLOW}  Ejecuta primero: ./scripts/java-resolute/build.sh${NC}"
+  echo -e "${YELLOW}  Ejecuta primero: ./scripts/java-spring-boot-web-dev-resolute-dind/build.sh${NC}"
   exit 1
 fi
 
@@ -37,8 +39,9 @@ if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
   docker rm -f "${CONTAINER_NAME}"
 fi
 
-# Lanzar contenedor
+# Lanzar contenedor (--privileged: imprescindible para Docker-in-Docker)
 docker run -d \
+  --privileged \
   --name "${CONTAINER_NAME}" \
   --shm-size=512m \
   -e VNC_PW="${VNC_PASSWORD}" \
@@ -54,6 +57,9 @@ echo -e "  Contraseña: ${GREEN}${VNC_PASSWORD}${NC}"
 echo ""
 echo -e "${YELLOW}Para ver logs:${NC}"
 echo -e "  docker logs -f ${CONTAINER_NAME}"
+echo ""
+echo -e "${YELLOW}Para comprobar Docker sin sudo dentro:${NC}"
+echo -e "  docker exec ${CONTAINER_NAME} su - kasm-user -c \"docker run --rm hello-world\""
 echo ""
 echo -e "${YELLOW}Para detener:${NC}"
 echo -e "  docker stop ${CONTAINER_NAME}"

@@ -107,7 +107,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://gitlab.com/pepesan/ejemplos-go-2026.git \
+RUN git clone https://git.cursosdedesarrollo.com/pepesan/ejemplos-go-2026.git \
     /home/kasm-default-profile/ejemplos-go-2026 && \
     chown -R 1000:0 /home/kasm-default-profile/ejemplos-go-2026
 

@@ -30,7 +30,7 @@ produced from a fork of Kasm's own base-image build,
 
 | Stack | Noble Dockerfile | Resolute Dockerfile | IDE | Extras |
 |---|---|---|---|---|
-| Java / security | `dockerfile-kasm-ubuntu-noble-desktop-custom` | `dockerfile-kasm-ubuntu-resolute-desktop-custom` | IntelliJ IDEA (latest) | OWASP ZAP, Firefox, example repo |
+| Java / security | `dockerfile-kasm-ubuntu-noble-desktop-custom` | `dockerfile-kasm-ubuntu-resolute-desktop-java-ciberseguridad-dind` | IntelliJ IDEA (latest) | OWASP ZAP, Firefox, example repo |
 | Go | `dockerfile-kasm-ubuntu-noble-desktop-go` | `dockerfile-kasm-ubuntu-resolute-desktop-go` | GoLand (latest) | Go toolchain, MariaDB, VS Code + Go extension, example repo |
 | Python | `dockerfile-kasm-ubuntu-noble-desktop-python` | `dockerfile-kasm-ubuntu-resolute-desktop-python` | PyCharm (latest) | pip/venv/pipx/uv, MariaDB drivers, VS Code + Python extension, example repos |
 
@@ -63,7 +63,7 @@ for the Ubuntu 26.04 variant) with the same five commands: `build.sh`, `run.sh`,
 | `scripts/java` | `pepesan/mi-ubuntu-noble-kasm` | 6901 |
 | `scripts/go` | `pepesan/mi-ubuntu-noble-kasm-go` | 6902 |
 | `scripts/python` | `pepesan/mi-ubuntu-noble-kasm-python` | 6903 |
-| `scripts/java-resolute` | `pepesan/mi-ubuntu-resolute-kasm` | 6910 |
+| `scripts/resolute-java-ciberseguridad-dind` | `pepesan/mi-ubuntu-resolute-kasm-java-ciberseguridad-dind` | 6910 |
 | `scripts/go-resolute` | `pepesan/mi-ubuntu-resolute-kasm-go` | 6911 |
 | `scripts/python-resolute` | `pepesan/mi-ubuntu-resolute-kasm-python` | 6912 |
 

@@ -1,0 +1,240 @@
+ARG BASE_TAG="1.0"
+ARG BASE_IMAGE="pepesan/core-ubuntu-resolute"
+FROM $BASE_IMAGE:$BASE_TAG
+
+USER root
+
+ENV HOME /home/kasm-default-profile
+ENV STARTUPDIR /dockerstartup
+WORKDIR $HOME
+
+### Envrionment config
+ENV DEBIAN_FRONTEND=noninteractive \
+    SKIP_CLEAN=true \
+    KASM_RX_HOME=$STARTUPDIR/kasmrx \
+    DONT_PROMPT_WSL_INSTALL="No_Prompt_please" \
+    INST_DIR=$STARTUPDIR/install \
+    INST_SCRIPTS="/ubuntu/install/dind/install_dind_resolute.sh \
+                  /ubuntu/install/tools/install_tools_deluxe.sh \
+                  /ubuntu/install/misc/install_tools.sh \
+                  /ubuntu/install/chrome/install_chrome.sh \
+                  /ubuntu/install/chromium/install_chromium.sh \
+                  /ubuntu/install/vs_code/install_vs_code.sh"
+
+# El uid 1000 de esta base ya lo ocupa "ubuntu"; install_dind_resolute.sh
+# necesita una cuenta llamada kasm-user para poder añadirla al grupo docker
+# (mismo useradd que ya usan dockerfile-kasm-ubuntu-resolute-desktop-python-dind
+# y dockerfile-kasm-ubuntu-resolute-desktop-dind).
+RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true
+
+# Startup Scripts (soporte Docker-in-Docker)
+COPY ./src/ubuntu/install/dind/custom_startup.sh $STARTUPDIR/custom_startup.sh
+RUN chmod 755 $STARTUPDIR/custom_startup.sh
+COPY ./src/ubuntu/install/dind/dockerd.conf /etc/supervisor/conf.d/
+COPY ./src/ubuntu/install/dind/daemon.json /etc/docker/daemon.json
+
+# Copy install scripts
+COPY ./src/ $INST_DIR
+
+# Run installations
+RUN \
+  for SCRIPT in $INST_SCRIPTS; do \
+    bash ${INST_DIR}${SCRIPT} || exit 1; \
+  done && \
+  $STARTUPDIR/set_user_permission.sh $HOME && \
+  rm -f /etc/X11/xinit/Xclients && \
+  chown 1000:0 $HOME && \
+  mkdir -p /home/kasm-user && \
+  chown -R 1000:0 /home/kasm-user && \
+  rm -Rf ${INST_DIR}
+
+# Run upgrades
+RUN \
+    apt update && \
+    apt upgrade -y
+
+# Instalar Firefox desde repositorio oficial Mozilla (no snap)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      wget \
+      curl \
+      ca-certificates && \
+    install -d -m 0755 /etc/apt/keyrings && \
+    wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg \
+      -O /etc/apt/keyrings/packages.mozilla.org.asc && \
+    echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" \
+      > /etc/apt/sources.list.d/mozilla.list && \
+    echo 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000' \
+      > /etc/apt/preferences.d/mozilla && \
+    apt-get update && \
+    apt-get install -y firefox && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# ====== INSTALAR JAVA (JDKs LTS, paquetes .deb del repo oficial de Resolute) ======
+RUN apt-get update && \
+    JDK_PKGS=$(apt-cache search --names-only '^openjdk-[0-9]+-jdk$' | awk '{print $1}') && \
+    apt-get install -y --no-install-recommends \
+      default-jdk \
+      zip \
+      unzip \
+      ${JDK_PKGS} && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+# ===================================================================================
+
+# ====== INSTALAR SDKMAN, MAVEN, GRADLE Y JDKs LTS (Temurin) ======
+# SDKMAN se instala en $HOME (/home/kasm-default-profile/.sdkman) para el perfil
+# por defecto, y desde ahi se gestionan Maven, Gradle y las distintas versiones
+# LTS de Java (Temurin) que el desarrollador quiera cambiar con "sdk use java ...".
+RUN curl -s "https://get.sdkman.io" | bash
+
+# Verificacion en build: el instalador de SDKMAN debe haber dejado el bloque de
+# inicializacion en .bashrc (si no, "sdk" no funcionaria en una shell interactiva
+# normal de kasm-user y la build debe fallar aqui, no en producto ya publicado)
+RUN grep -q "sdkman-init.sh" /home/kasm-default-profile/.bashrc
+
+RUN bash -c "source \$HOME/.sdkman/bin/sdkman-init.sh && \
+    sdk version && \
+    yes | sdk install maven && \
+    yes | sdk install gradle"
+
+# Instala la ultima version Temurin de cada rama LTS (8, 11, 17, 21, 25) y deja
+# la 21 como version por defecto de SDKMAN (no la 25): Spring Boot 3.5.x fija
+# una version de Lombok que aun no genera getters/setters/constructores de forma
+# fiable con JDK 25 (falla en silencio, sin ningun error propio de Lombok, con
+# "cannot find symbol"/"constructor cannot be applied" en cascada por todo el
+# proyecto) -- probado y confirmado en el repo de ejemplo clonado en esta imagen.
+# Nota: los identificadores Temurin de SDKMAN no siempre tienen el mismo
+# formato -- algunas ramas usan metadato de build con "+" (ej. "21.0.12+1.1-tem")
+# y otras no (ej. "17.0.20-tem"). El patrón de abajo admite ambos; una version
+# anterior solo admitia el segundo formato y por eso las ramas 8, 11 y 21 se
+# saltaban silenciosamente (sin dar error) al no encontrar ningun ID valido.
+RUN bash -c "source \$HOME/.sdkman/bin/sdkman-init.sh && \
+    for MAJOR in 8 11 17 21 25; do \
+      ID=\$(sdk list java | grep -oP '[0-9][0-9.+]*-tem' | grep -E \"^\${MAJOR}\.\" | sort -V | tail -1); \
+      if [ -n \"\${ID}\" ]; then yes | sdk install java \${ID} || true; fi; \
+    done && \
+    DEFAULT_LTS=\$(sdk list java | grep -oP '[0-9][0-9.+]*-tem' | grep -E '^21\.' | sort -V | tail -1) && \
+    if [ -n \"\${DEFAULT_LTS}\" ]; then sdk default java \${DEFAULT_LTS}; fi"
+
+# "sdk install <candidato>" deja el symlink "current" en forma relativa (p.ej.
+# "current -> 3.9.16"), pero "sdk default java <version>" usado arriba lo deja
+# en forma ABSOLUTA (p.ej. "current -> /home/kasm-default-profile/.sdkman/...").
+# Eso rompe el uso normal desde kasm-user: Kasm copia este perfil por defecto a
+# $HOME de kasm-user en el primer arranque, y un symlink absoluto seguiria
+# apuntando a /home/kasm-default-profile en vez de a la copia propia del
+# usuario. Se normaliza aqui a relativo para que "current" funcione igual sea
+# cual sea el arbol (default-profile o la copia de kasm-user) desde el que se
+# resuelva.
+RUN cd /home/kasm-default-profile/.sdkman/candidates && \
+    for CANDIDATE_DIR in */; do \
+      CANDIDATE_DIR="${CANDIDATE_DIR%/}"; \
+      if [ -L "${CANDIDATE_DIR}/current" ]; then \
+        TARGET=$(readlink "${CANDIDATE_DIR}/current"); \
+        ln -sfn "$(basename "${TARGET}")" "${CANDIDATE_DIR}/current"; \
+      fi; \
+    done
+
+RUN chown -R 1000:0 /home/kasm-default-profile/.sdkman
+
+# El instalador de SDKMAN ya deja el bloque de inicializacion en
+# /home/kasm-default-profile/.bashrc (perfil que Kasm copia a $HOME de
+# kasm-user en el primer arranque). Como red de seguridad adicional, se
+# exponen tambien via ENV los binarios "current" de java/maven/gradle para
+# que funcionen en cualquier shell (interactiva o no) sin depender de que
+# se haya cargado el .bashrc.
+ENV SDKMAN_DIR=/home/kasm-user/.sdkman
+ENV JAVA_HOME=/home/kasm-user/.sdkman/candidates/java/current
+ENV PATH=$PATH:/home/kasm-user/.sdkman/candidates/java/current/bin:/home/kasm-user/.sdkman/candidates/maven/current/bin:/home/kasm-user/.sdkman/candidates/gradle/current/bin
+# ==================================================================
+
+# Instalar extensiones oficiales de Java/Spring Boot en VS Code (para el perfil por defecto)
+RUN mkdir -p /home/kasm-default-profile/.vscode/extensions && \
+    HOME=/home/kasm-default-profile code --install-extension vscjava.vscode-java-pack \
+      --no-sandbox \
+      --extensions-dir /home/kasm-default-profile/.vscode/extensions \
+      --user-data-dir /home/kasm-default-profile/.vscode/user-data 2>/dev/null || true && \
+    HOME=/home/kasm-default-profile code --install-extension vmware.vscode-spring-boot \
+      --no-sandbox \
+      --extensions-dir /home/kasm-default-profile/.vscode/extensions \
+      --user-data-dir /home/kasm-default-profile/.vscode/user-data 2>/dev/null || true && \
+    HOME=/home/kasm-default-profile code --install-extension vmware.vscode-boot-dev-pack \
+      --no-sandbox \
+      --extensions-dir /home/kasm-default-profile/.vscode/extensions \
+      --user-data-dir /home/kasm-default-profile/.vscode/user-data 2>/dev/null || true && \
+    chown -R 1000:0 /home/kasm-default-profile/.vscode
+
+# ====== INSTALAR INTELLIJ IDEA (ultima release) ======
+# Nota: JetBrains dejo de publicar builds separados para "Community" (code=IIC)
+# en diciembre de 2025; ese feed esta congelado. El build unificado activo se
+# publica bajo code=IIU y ya no usa sufijo de edicion en el nombre de carpeta.
+RUN LATEST=$(curl -s "https://data.services.jetbrains.com/products/releases?code=IIU&latest=true&type=release" \
+      | grep -oP '"linux":.*?"link":"\K[^"]+' | head -1) && \
+    wget -q "${LATEST}" -O /tmp/intellij.tar.gz && \
+    tar -xzf /tmp/intellij.tar.gz -C /opt && \
+    mv /opt/idea-* /opt/intellij && \
+    rm /tmp/intellij.tar.gz && \
+    ln -s /opt/intellij/bin/idea.sh /usr/local/bin/idea
+
+# Acceso directo en el escritorio
+RUN mkdir -p /home/kasm-default-profile/Desktop && \
+    printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=IntelliJ IDEA\nExec=/opt/intellij/bin/idea.sh\nIcon=/opt/intellij/bin/idea.png\nTerminal=false\nCategories=Development;IDE;\n' \
+    > /home/kasm-default-profile/Desktop/intellij.desktop && \
+    chmod +x /home/kasm-default-profile/Desktop/intellij.desktop && \
+    chown -R 1000:0 /home/kasm-default-profile/Desktop
+# ======================================================
+
+# Clonar repositorio de ejemplos Spring Boot
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/pepesan/spring-boot-3.1-api-rest-jpa-testing.git \
+    /home/kasm-default-profile/spring-boot-3.1-api-rest-jpa-testing && \
+    chown -R 1000:0 /home/kasm-default-profile/spring-boot-3.1-api-rest-jpa-testing
+
+# Repositorio de ejemplos docker-twitch (comun a todas las imagenes DinD)
+RUN git clone https://github.com/pepesan/docker-twitch.git \
+    /home/kasm-default-profile/docker-twitch && \
+    chown -R 1000:0 /home/kasm-default-profile/docker-twitch
+
+# TODO: clonar aqui mas repositorios de ejemplos Spring Boot / Java si hicieran falta
+# RUN git clone <repo> /home/kasm-default-profile/<carpeta> && \
+#     chown -R 1000:0 /home/kasm-default-profile/<carpeta>
+
+# ====== MARIADB + PHPMYADMIN (via Docker Compose, sobre el DinD) ======
+# En vez de un MariaDB nativo, aqui se usa el propio Docker-in-Docker: se deja
+# un docker/compose.yaml listo en el home del usuario con MariaDB + phpMyAdmin.
+# No se arranca en build (el daemon dockerd solo esta activo en runtime, via
+# supervisord) — el usuario hace "docker compose up -d" dentro de ~/docker.
+# Puerto de phpMyAdmin (8091) elegido para no chocar con los puertos web
+# habituales de apps Java (8080, 8081, 8443, 9090...) ni con 80/443.
+RUN mkdir -p /home/kasm-default-profile/docker
+COPY ./src/common/docker-compose/java-spring-boot-web-dev/compose.yaml \
+     /home/kasm-default-profile/docker/compose.yaml
+RUN chown -R 1000:0 /home/kasm-default-profile/docker
+# ========================================================================
+
+# ====== CLEANUP ======
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# =====================
+
+### ====== CONTRASEÑA PERSONALIZADA ======
+ARG USER_PASSWORD=kasm
+RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true && \
+    echo "kasm-user:${USER_PASSWORD}" | chpasswd && \
+    echo "root:${USER_PASSWORD}" | chpasswd && \
+    usermod -aG sudo kasm-user
+
+ENV VNC_PW=${USER_PASSWORD}
+### =======================================
+
+# Userspace Runtime
+ENV HOME /home/kasm-user
+WORKDIR $HOME
+USER 1000
+
+CMD ["--tail-log"]

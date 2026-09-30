@@ -7,6 +7,13 @@ wget -q https://update.code.visualstudio.com/latest/linux-deb-${ARCH}/stable -O 
 apt-get update
 apt-get install -y ./vs_code.deb
 
+# Desde VS Code 1.139 el paquete instala com.microsoft.VSCode.desktop en vez de
+# code.desktop; se renombra al nombre clásico para que el resto del script y las
+# imágenes (que esperan code.desktop) sigan funcionando con cualquier versión.
+if [ ! -f /usr/share/applications/code.desktop ] && [ -f /usr/share/applications/com.microsoft.VSCode.desktop ]; then
+  mv /usr/share/applications/com.microsoft.VSCode.desktop /usr/share/applications/code.desktop
+fi
+
 # Desktop icon
 mkdir -p /usr/share/icons/hicolor/apps
 wget -O /usr/share/icons/hicolor/apps/vscode.svg https://kasm-static-content.s3.amazonaws.com/icons/vscode.svg

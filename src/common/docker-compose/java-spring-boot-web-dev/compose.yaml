@@ -1,0 +1,31 @@
+services:
+  mariadb:
+    image: mariadb:11
+    container_name: mariadb-dev
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: kasm
+      MARIADB_DATABASE: desarrollo
+      MARIADB_USER: dev
+      MARIADB_PASSWORD: dev
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin-dev
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+    # 8091 evita choque con los puertos web habituales de Java (8080, 8081,
+    # 8443, 9090...) y con 80/443
+    ports:
+      - "8091:80"
+    depends_on:
+      - mariadb
+
+volumes:
+  mariadb_data:
