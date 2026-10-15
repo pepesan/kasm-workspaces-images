@@ -33,8 +33,11 @@ RUN chmod 755 $STARTUPDIR/custom_startup.sh
 COPY ./src/ubuntu/install/dind/dockerd.conf /etc/supervisor/conf.d/
 COPY ./src/ubuntu/install/dind/daemon.json /etc/docker/daemon.json
 
-# Copy install scripts
-COPY ./src/ $INST_DIR
+# Copy install scripts (solo ./src/ubuntu/, que es lo único que usa
+# INST_SCRIPTS más abajo; evita que cambios en ./src/common/ — iconos,
+# compose.yaml, scripts de lanzamiento — invaliden esta capa y todas las
+# siguientes en cada rebuild).
+COPY ./src/ubuntu/ $INST_DIR/ubuntu/
 
 # Run installations
 RUN \
@@ -127,7 +130,12 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/pepesan/ejemplos-python.git \
+# Cache-bust: build.sh pasa aqui un valor distinto en cada build para que esta
+# capa (git clone) no se reutilice de la cache y la imagen lleve siempre la
+# ultima version de los repos. Solo se rehacen esta capa y las siguientes.
+ARG REPOS_REV=0
+RUN echo "repos rev: ${REPOS_REV}" && \
+    git clone https://github.com/pepesan/ejemplos-python.git \
     /home/kasm-default-profile/ejemplos-python && \
     git clone https://github.com/pepesan/machine-learning-python.git \
     /home/kasm-default-profile/machine-learning-python && \
@@ -149,17 +157,20 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Inicializar datos y crear BD/usuario de desarrollo
-RUN mysql_install_db --user=mysql --basedir=/usr --datadir=/var/lib/mysql && \
-    mysqld_safe --skip-networking --skip-grant-tables & \
-    sleep 3 && \
-    mysql -u root -e "FLUSH PRIVILEGES; \
-      ALTER USER 'root'@'localhost' IDENTIFIED BY 'kasm'; \
+# Crear BD/usuario de desarrollo. El paquete ya inicializa su propio datadir
+# (/var/lib/mariadb en Ubuntu 26.04), asi que se arranca tal cual, se espera a
+# que el socket responda (fallando el build si no llega a hacerlo), se aplica
+# el SQL como root del SO (unix_socket) y se apaga limpiamente.
+RUN (mysqld_safe --skip-networking &) && \
+    for i in $(seq 1 60); do mariadb-admin ping --silent && break; sleep 1; done && \
+    mariadb-admin ping --silent && \
+    mariadb -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'kasm'; \
       CREATE DATABASE IF NOT EXISTS desarrollo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; \
       CREATE USER IF NOT EXISTS 'dev'@'localhost' IDENTIFIED BY 'dev'; \
       GRANT ALL PRIVILEGES ON desarrollo.* TO 'dev'@'localhost'; \
       FLUSH PRIVILEGES;" && \
-    kill $(pgrep mysqld) || true
+    mariadb -u root -pkasm -e "SHOW DATABASES LIKE 'desarrollo';" | grep -q desarrollo && \
+    mariadb-admin -u root -pkasm shutdown
 
 # Arranque automático via supervisord (gestor de procesos de Kasm)
 RUN printf '[program:mariadb]\ncommand=/usr/bin/mysqld_safe\nautostart=true\nautorestart=true\nuser=mysql\nstdout_logfile=/var/log/mariadb.log\nstderr_logfile=/var/log/mariadb.log\n' \
@@ -180,6 +191,28 @@ RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true && \
 
 ENV VNC_PW=${USER_PASSWORD}
 ### =======================================
+
+# Script de lanzamiento de laboratorios docker-twitch: hace "git pull" del
+# repo y, si no se le indica laboratorio por argumento, muestra un menu
+# interactivo con las carpetas de docker-twitch/compose disponibles. Se copia
+# al final del Dockerfile porque se edita a menudo (labs nuevos, ajustes del
+# menu) y así un cambio aquí no invalida la limpieza de apt ni ninguna capa
+# previa, solo esta y la siguiente.
+COPY ./src/common/resources/launch_docker_twitch.sh /home/kasm-default-profile/launch_docker_twitch.sh
+RUN chmod +x /home/kasm-default-profile/launch_docker_twitch.sh && \
+    chown 1000:0 /home/kasm-default-profile/launch_docker_twitch.sh
+
+# Icono (ballena de Docker) para el lanzador de escritorio de docker-twitch.
+COPY ./src/common/resources/images/docker-mark.png /opt/icons/docker-mark.png
+RUN chown 1000:0 /opt/icons/docker-mark.png
+
+# Lanzador de escritorio para el script anterior: abre una terminal y ejecuta
+# el menu interactivo de laboratorios docker-twitch.
+RUN mkdir -p /home/kasm-default-profile/Desktop && \
+    printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Docker Twitch - Lanzar entorno\nComment=Actualiza docker-twitch y lanza un laboratorio docker compose\nExec=xfce4-terminal --title=docker-twitch -e /home/kasm-user/launch_docker_twitch.sh\nIcon=/opt/icons/docker-mark.png\nTerminal=false\nCategories=Development;\n' \
+    > /home/kasm-default-profile/Desktop/docker-twitch.desktop && \
+    chmod +x /home/kasm-default-profile/Desktop/docker-twitch.desktop && \
+    chown -R 1000:0 /home/kasm-default-profile/Desktop
 
 # Userspace Runtime
 ENV HOME /home/kasm-user
