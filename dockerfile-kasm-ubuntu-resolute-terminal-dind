@@ -1,0 +1,82 @@
+ARG BASE_TAG="1.2"
+ARG BASE_IMAGE="pepesan/core-ubuntu-resolute"
+FROM $BASE_IMAGE:$BASE_TAG
+
+USER root
+
+ENV HOME /home/kasm-default-profile
+ENV STARTUPDIR /dockerstartup
+WORKDIR $HOME
+
+### Envrionment config
+ENV DEBIAN_FRONTEND=noninteractive \
+    SKIP_CLEAN=true \
+    KASM_RX_HOME=$STARTUPDIR/kasmrx \
+    DONT_PROMPT_WSL_INSTALL="No_Prompt_please" \
+    INST_DIR=$STARTUPDIR/install \
+    INST_SCRIPTS="/ubuntu/install/dind/install_dind_resolute.sh \
+                  /ubuntu/install/ansible/install_ansible.sh \
+                  /ubuntu/install/cleanup/cleanup.sh"
+# Nota: Terraform no se instala en Resolute — install_terraform.sh usa
+# apt-key, eliminado en Ubuntu 26.04 (mismo motivo por el que el resto de
+# imagenes Resolute de este repo tampoco lo incluyen).
+
+# El uid 1000 de esta base ya lo ocupa "ubuntu"; install_dind_resolute.sh
+# necesita una cuenta llamada kasm-user para poder añadirla al grupo docker
+# (mismo useradd que el resto de variantes DinD de Resolute).
+RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true
+
+RUN apt-get update && apt-get install -y tmux screen nano dnsutils zip
+
+RUN echo "set -g mouse on" > $HOME/.tmux.conf && chown 1000:0 $HOME/.tmux.conf
+
+### Update .bashrc to run an arbitrary command if specified as an environment variable
+RUN echo "if [ ! -z \"\${SHELL_EXEC}\" ] && [ \"\${TERM}\" == \"xterm-256color\" ] ; \n\
+then \n\
+    set +e \n\
+    eval \${SHELL_EXEC} \n\
+fi  " >> $HOME/.bashrc && chown 1000:0 $HOME/.bashrc
+
+# Soporte Docker-in-Docker: dockerd se registra como programa independiente
+# de supervisord (igual que el resto de imagenes DinD); no toca custom_startup.sh.
+COPY ./src/ubuntu/install/dind/dockerd.conf /etc/supervisor/conf.d/
+COPY ./src/ubuntu/install/dind/daemon.json /etc/docker/daemon.json
+
+# Copy install scripts
+COPY ./src/ $INST_DIR
+
+# Run installations
+RUN \
+  for SCRIPT in $INST_SCRIPTS; do \
+    bash ${INST_DIR}${SCRIPT} || exit 1; \
+  done && \
+  $STARTUPDIR/set_user_permission.sh $HOME && \
+  rm -f /etc/X11/xinit/Xclients && \
+  chown 1000:0 $HOME && \
+  mkdir -p /home/kasm-user && \
+  chown -R 1000:0 /home/kasm-user && \
+  rm -Rf ${INST_DIR}
+
+# Startup de terminal (modo single-app) + Docker-in-Docker: lanza xfce4-terminal
+# maximizado (en vez de un escritorio completo) y, en paralelo, mantiene viva
+# supervisord (que esta base no arranca por si sola) para que dockerd.conf
+# levante dockerd.
+COPY ./src/ubuntu/install/terminal/custom_startup_dind.sh $STARTUPDIR/custom_startup.sh
+RUN chmod 755 $STARTUPDIR/custom_startup.sh
+
+# Update the desktop environment to be optimized for a single application
+RUN cp $HOME/.config/xfce4/xfconf/single-application-xfce-perchannel-xml/* $HOME/.config/xfce4/xfconf/xfce-perchannel-xml/ && \
+    cp /usr/share/backgrounds/bg_kasm.png /usr/share/backgrounds/bg_default.png && \
+    apt-get remove -y xfce4-panel
+
+# Repositorio de ejemplos docker-twitch (comun a todas las imagenes DinD)
+RUN git clone https://github.com/pepesan/docker-twitch.git \
+    /home/kasm-default-profile/docker-twitch && \
+    chown -R 1000:0 /home/kasm-default-profile/docker-twitch
+
+# Userspace Runtime
+ENV HOME /home/kasm-user
+WORKDIR $HOME
+USER 1000
+
+CMD ["--tail-log"]

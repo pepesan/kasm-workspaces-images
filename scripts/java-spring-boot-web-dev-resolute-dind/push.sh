@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-java-spring-boot-web-dev-dind"
-IMAGE_TAG="1.3"
+IMAGE_TAG="1.6"
 # ============================================
 
 # Colores

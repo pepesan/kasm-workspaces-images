@@ -34,6 +34,17 @@ produced from a fork of Kasm's own base-image build,
 | Go | `dockerfile-kasm-ubuntu-noble-desktop-go` | `dockerfile-kasm-ubuntu-resolute-desktop-go` | GoLand (latest) | Go toolchain, MariaDB, VS Code + Go extension, example repo |
 | Python | `dockerfile-kasm-ubuntu-noble-desktop-python` | `dockerfile-kasm-ubuntu-resolute-desktop-python` | PyCharm (latest) | pip/venv/pipx/uv, MariaDB drivers, VS Code + Python extension, example repos |
 
+## Terminal-only images (Resolute)
+
+Besides the full desktops above, this repo also ships Resolute-based
+**Terminal** type workspaces (single `xfce4-terminal` window, no desktop
+panel/taskbar), in two flavors:
+
+| Dockerfile | Docker-in-Docker | Image |
+|---|---|---|
+| `dockerfile-kasm-ubuntu-resolute-terminal` | No | `pepesan/mi-ubuntu-resolute-kasm-terminal` |
+| `dockerfile-kasm-ubuntu-resolute-terminal-dind` | Yes (`--privileged` required) | `pepesan/mi-ubuntu-resolute-kasm-terminal-dind` |
+
 ## JetBrains "latest" IDE downloads
 
 Each Dockerfile fetches the latest IDE release straight from JetBrains' API
@@ -66,6 +77,8 @@ for the Ubuntu 26.04 variant) with the same five commands: `build.sh`, `run.sh`,
 | `scripts/resolute-java-ciberseguridad-dind` | `pepesan/mi-ubuntu-resolute-kasm-java-ciberseguridad-dind` | 6910 |
 | `scripts/go-resolute` | `pepesan/mi-ubuntu-resolute-kasm-go` | 6911 |
 | `scripts/python-resolute` | `pepesan/mi-ubuntu-resolute-kasm-python` | 6912 |
+| `scripts/resolute-terminal` | `pepesan/mi-ubuntu-resolute-kasm-terminal` | 6919 |
+| `scripts/resolute-terminal-dind` | `pepesan/mi-ubuntu-resolute-kasm-terminal-dind` | 6920 |
 
 Each folder's own `README.md` has the full detail (credentials, MariaDB
 connection strings, Python env tooling, etc.).

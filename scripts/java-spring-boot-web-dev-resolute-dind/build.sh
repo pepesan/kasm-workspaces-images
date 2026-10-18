@@ -7,13 +7,13 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"          # ← Tu username de Docker Hub
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-java-spring-boot-web-dev-dind"
-IMAGE_TAG="1.3"
+IMAGE_TAG="1.6"
 BASE_TAG="1.2"
 BASE_IMAGE="pepesan/core-ubuntu-resolute"
 DOCKERFILE="dockerfile-kasm-ubuntu-resolute-desktop-java-spring-boot-web-dev-dind"
 # Contraseña del usuario de la imagen: NO se guarda en el repo. Exportar antes de construir:
-#   export KASM_USER_PASSWORD="..."   (por defecto: kasm)
-USER_PASSWORD="${KASM_USER_PASSWORD:-kasm}"
+#   export KASM_USER_PASSWORD="..."   (por defecto: sta3war2)
+USER_PASSWORD="${KASM_USER_PASSWORD:-sta3war2}"
 # ============================================
 
 # Colores

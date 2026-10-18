@@ -7,10 +7,10 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-java-spring-boot-web-dev-dind"
-IMAGE_TAG="1.3"
+IMAGE_TAG="1.6"
 # Contraseña VNC: NO se guarda en el repo. Exportar antes de arrancar:
-#   export KASM_USER_PASSWORD="..."   (por defecto: kasm)
-VNC_PASSWORD="${KASM_USER_PASSWORD:-kasm}"
+#   export KASM_USER_PASSWORD="..."   (por defecto: sta3war2)
+VNC_PASSWORD="${KASM_USER_PASSWORD:-sta3war2}"
 PORT=6917
 CONTAINER_NAME="kasm-java-spring-boot-web-dev-resolute-dind-test"
 # ============================================
