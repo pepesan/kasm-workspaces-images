@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-java-ciberseguridad-dind"
-IMAGE_TAG="1.2"
+IMAGE_TAG="1.3"
 VNC_PASSWORD="sta3war2"
 PORT=6910
 CONTAINER_NAME="kasm-resolute-java-ciberseguridad-dind-test"
@@ -40,6 +40,7 @@ fi
 # Lanzar contenedor (--privileged: imprescindible para Docker-in-Docker)
 docker run -d \
   --privileged \
+  -v /dev/null:/dev/dri/renderD128 \
   --name "${CONTAINER_NAME}" \
   --shm-size=512m \
   -e VNC_PW="${VNC_PASSWORD}" \

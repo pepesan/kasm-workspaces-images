@@ -7,8 +7,8 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"          # ← Tu username de Docker Hub
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-go"
-IMAGE_TAG="1.2"
-BASE_TAG="1.2"
+IMAGE_TAG="1.3"
+BASE_TAG="1.20"
 BASE_IMAGE="pepesan/core-ubuntu-resolute"
 DOCKERFILE="dockerfile-kasm-ubuntu-resolute-desktop-go"
 USER_PASSWORD="sta3war2"

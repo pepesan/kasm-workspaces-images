@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-dind"
-IMAGE_TAG="1.1"
+IMAGE_TAG="1.2"
 VNC_PASSWORD="sta3war2"
 PORT=6915
 CONTAINER_NAME="kasm-resolute-dind-basica-test"
@@ -37,6 +37,7 @@ fi
 
 docker run -d \
   --privileged \
+  -v /dev/null:/dev/dri/renderD128 \
   --name "${CONTAINER_NAME}" \
   --shm-size=512m \
   -e VNC_PW="${VNC_PASSWORD}" \

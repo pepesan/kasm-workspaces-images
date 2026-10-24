@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-terminal"
-IMAGE_TAG="1.0"
+IMAGE_TAG="1.1"
 VNC_PASSWORD="sta3war2"
 PORT=6919
 CONTAINER_NAME="kasm-terminal-resolute-test"

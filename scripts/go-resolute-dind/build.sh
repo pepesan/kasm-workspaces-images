@@ -7,8 +7,8 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"          # ← Tu username de Docker Hub
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-go-dind"
-IMAGE_TAG="1.2"
-BASE_TAG="1.2"
+IMAGE_TAG="1.3"
+BASE_TAG="1.20"
 BASE_IMAGE="pepesan/core-ubuntu-resolute"
 DOCKERFILE="dockerfile-kasm-ubuntu-resolute-desktop-go-dind"
 # Contraseña del usuario de la imagen: NO se guarda en el repo. Exportar antes de construir:

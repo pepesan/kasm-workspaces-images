@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-go-dind"
-IMAGE_TAG="1.2"
+IMAGE_TAG="1.3"
 # Contraseña VNC: NO se guarda en el repo. Exportar antes de arrancar:
 #   export KASM_USER_PASSWORD="..."   (por defecto: kasm)
 VNC_PASSWORD="${KASM_USER_PASSWORD:-kasm}"
@@ -42,6 +42,7 @@ fi
 # Lanzar contenedor (--privileged: imprescindible para Docker-in-Docker)
 docker run -d \
   --privileged \
+  -v /dev/null:/dev/dri/renderD128 \
   --name "${CONTAINER_NAME}" \
   --shm-size=512m \
   -e VNC_PW="${VNC_PASSWORD}" \
