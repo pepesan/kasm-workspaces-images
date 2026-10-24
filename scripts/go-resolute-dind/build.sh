@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"          # ← Tu username de Docker Hub
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-go-dind"
-IMAGE_TAG="1.1"
+IMAGE_TAG="1.2"
 BASE_TAG="1.2"
 BASE_IMAGE="pepesan/core-ubuntu-resolute"
 DOCKERFILE="dockerfile-kasm-ubuntu-resolute-desktop-go-dind"
@@ -40,6 +40,7 @@ docker build \
   --build-arg BASE_TAG="${BASE_TAG}" \
   --build-arg BASE_IMAGE="${BASE_IMAGE}" \
   --build-arg USER_PASSWORD="${USER_PASSWORD}" \
+  --build-arg TOOLS_REV="$(date +%s)" \
   -t "${IMAGE_NAME}:${IMAGE_TAG}" \
   -f "${DOCKERFILE}" \
   .

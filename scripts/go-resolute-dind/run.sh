@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-go-dind"
-IMAGE_TAG="1.1"
+IMAGE_TAG="1.2"
 # Contraseña VNC: NO se guarda en el repo. Exportar antes de arrancar:
 #   export KASM_USER_PASSWORD="..."   (por defecto: kasm)
 VNC_PASSWORD="${KASM_USER_PASSWORD:-kasm}"
