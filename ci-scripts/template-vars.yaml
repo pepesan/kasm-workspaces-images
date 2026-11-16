@@ -720,6 +720,20 @@ multiImages:
       - src/ubuntu/install/cleanup/**
       - src/ubuntu/install/chromium/**
       - src/ubuntu/install/chrome/**
+  - name: ubuntu-resolute-desktop-angular
+    runset: set-b
+    singleapp: false
+    base: core-ubuntu-resolute
+    dockerfile: dockerfile-kasm-ubuntu-resolute-desktop-angular
+    changeFiles:
+      - dockerfile-kasm-ubuntu-resolute-desktop-angular
+      - src/ubuntu/install/tools/**
+      - src/ubuntu/install/misc/**
+      - src/ubuntu/install/vs_code/**
+      - src/ubuntu/install/chrome/**
+      - src/ubuntu/install/firefox/**
+      - src/ubuntu/install/cleanup/**
+      - src/ubuntu/install/angular_dev/**
   - name: vivaldi
     runset: set-b
     singleapp: true
