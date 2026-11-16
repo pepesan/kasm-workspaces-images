@@ -1,0 +1,47 @@
+ARG BASE_TAG="1.0"
+ARG BASE_IMAGE="pepesan/core-ubuntu-resolute"
+FROM $BASE_IMAGE:$BASE_TAG
+ARG NVM_VERSION="0.40.3"
+ARG NODE_VERSION="26"
+ARG PNPM_VERSION="latest"
+ARG BUN_VERSION="latest"
+ARG DENO_VERSION="latest"
+ARG ANGULAR_CLI_VERSION="latest"
+ARG WEBSTORM_VERSION="latest"
+
+USER root
+
+ENV HOME=/home/kasm-default-profile \
+    STARTUPDIR=/dockerstartup \
+    DEBIAN_FRONTEND=noninteractive \
+    SKIP_CLEAN=true \
+    KASM_RX_HOME=/dockerstartup/kasmrx \
+    DONT_PROMPT_WSL_INSTALL="No_Prompt_please" \
+    INST_DIR=/dockerstartup/install \
+    INST_SCRIPTS="/ubuntu/install/tools/install_tools_deluxe.sh /ubuntu/install/misc/install_tools.sh /ubuntu/install/chrome/install_chrome.sh /ubuntu/install/firefox/install_firefox.sh /ubuntu/install/vs_code/install_vs_code.sh /ubuntu/install/cleanup/cleanup.sh"
+WORKDIR $HOME
+
+COPY ./src/ubuntu/install/tools/ $INST_DIR/ubuntu/install/tools/
+COPY ./src/ubuntu/install/misc/ $INST_DIR/ubuntu/install/misc/
+COPY ./src/ubuntu/install/vs_code/ $INST_DIR/ubuntu/install/vs_code/
+COPY ./src/ubuntu/install/chrome/ $INST_DIR/ubuntu/install/chrome/
+COPY ./src/ubuntu/install/firefox/ $INST_DIR/ubuntu/install/firefox/
+COPY ./src/ubuntu/install/cleanup/ $INST_DIR/ubuntu/install/cleanup/
+RUN for SCRIPT in $INST_SCRIPTS; do bash "${INST_DIR}${SCRIPT}" || exit 1; done && \
+    $STARTUPDIR/set_user_permission.sh $HOME && \
+    rm -f /etc/X11/xinit/Xclients && \
+    chown 1000:0 $HOME && \
+    rm -Rf ${INST_DIR}
+COPY ./src/ubuntu/install/angular_dev/install_angular_dev.sh /usr/local/bin/install_angular_dev.sh
+RUN bash /usr/local/bin/install_angular_dev.sh && \
+    chown -R 1000:0 /home/kasm-default-profile && \
+    rm /usr/local/bin/install_angular_dev.sh
+
+ENV HOME=/home/kasm-user
+WORKDIR $HOME
+RUN usermod --home "$HOME" ubuntu && \
+    rm -rf /home/ubuntu && \
+    mkdir -p "$HOME" && \
+    chown -R 1000:0 "$HOME"
+USER 1000
+CMD ["--tail-log"]

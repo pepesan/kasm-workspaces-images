@@ -1,0 +1,90 @@
+ARG BASE_TAG="1.20"
+ARG BASE_IMAGE="pepesan/core-ubuntu-resolute"
+FROM $BASE_IMAGE:$BASE_TAG
+
+USER root
+
+ENV HOME=/home/kasm-default-profile \
+    STARTUPDIR=/dockerstartup \
+    DEBIAN_FRONTEND=noninteractive \
+    SKIP_CLEAN=true \
+    KASM_RX_HOME=/dockerstartup/kasmrx \
+    DONT_PROMPT_WSL_INSTALL="No_Prompt_please" \
+    INST_DIR=/dockerstartup/install \
+    INST_SCRIPTS="/ubuntu/install/dind/install_dind_resolute.sh /ubuntu/install/tools/install_tools_deluxe.sh /ubuntu/install/ansible/install_ansible.sh /ubuntu/install/chrome/install_chrome.sh /ubuntu/install/firefox/install_firefox.sh /ubuntu/install/cleanup/cleanup.sh"
+
+WORKDIR $HOME
+
+# UID 1000 runs the Kasm desktop; the named account is needed by the DinD installer.
+RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true
+
+RUN cp $STARTUPDIR/vnc_startup.sh $STARTUPDIR/vnc_startup_kasm.sh
+COPY ./src/ubuntu/install/dind/vnc_startup_privileged.sh $STARTUPDIR/vnc_startup.sh
+RUN chmod 755 $STARTUPDIR/vnc_startup.sh
+COPY ./src/ubuntu/install/dind/custom_startup.sh $STARTUPDIR/custom_startup.sh
+RUN chmod 755 $STARTUPDIR/custom_startup.sh
+COPY ./src/ubuntu/install/dind/dockerd.conf /etc/supervisor/conf.d/
+COPY ./src/ubuntu/install/dind/daemon.json /etc/docker/daemon.json
+COPY ./src/ $INST_DIR
+
+RUN set -eux; \
+    for SCRIPT in $INST_SCRIPTS; do bash "${INST_DIR}${SCRIPT}"; done; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends python3-docker wget curl tar; \
+    ansible-galaxy collection install -p /usr/share/ansible/collections community.docker; \
+    rm -rf /var/lib/apt/lists/*; \
+    $STARTUPDIR/set_user_permission.sh $HOME; \
+    rm -f /etc/X11/xinit/Xclients; \
+    chown 1000:0 $HOME; \
+    mkdir -p /home/kasm-user; \
+    chown -R 1000:0 /home/kasm-user; \
+    rm -Rf ${INST_DIR}
+
+# IntelliJ IDEA unified Linux build.
+RUN set -eux; \
+    LATEST="$(curl -fsSL 'https://data.services.jetbrains.com/products/releases?code=IIU&latest=true&type=release' | grep -oP '"linux":.*?"link":"\K[^"]+' | head -1)"; \
+    test -n "$LATEST"; \
+    wget -q "$LATEST" -O /tmp/intellij.tar.gz; \
+    tar -xzf /tmp/intellij.tar.gz -C /opt; \
+    mv /opt/idea-* /opt/intellij; \
+    rm /tmp/intellij.tar.gz; \
+    ln -s /opt/intellij/bin/idea.sh /usr/local/bin/idea
+
+# Official Ansible logo artwork (Wikimedia Commons, public-domain text logo).
+RUN mkdir -p /opt/icons && \
+    curl -fsSL 'https://upload.wikimedia.org/wikipedia/commons/2/24/Ansible_logo.svg' \
+      -o /opt/icons/ansible.svg && \
+    chown 1000:0 /opt/icons/ansible.svg
+
+# Examples are part of the workspace, not baked into a shared host path.
+RUN git clone https://github.com/pepesan/ejemplos-ansible.git /home/kasm-default-profile/ejemplos-ansible && \
+    git clone https://github.com/pepesan/docker-twitch.git /home/kasm-default-profile/docker-twitch && \
+    chown -R 1000:0 /home/kasm-default-profile/ejemplos-ansible /home/kasm-default-profile/docker-twitch
+
+COPY ./scripts/ansible-resolute-dind/update_ejemplos_ansible.sh /home/kasm-default-profile/update_ejemplos_ansible.sh
+RUN chmod 755 /home/kasm-default-profile/update_ejemplos_ansible.sh && \
+    chown 1000:0 /home/kasm-default-profile/update_ejemplos_ansible.sh && \
+    mkdir -p /home/kasm-default-profile/Desktop && \
+    printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Actualizar ejemplos de Ansible\nComment=Actualiza el repositorio del curso con git pull --ff-only\nExec=xfce4-terminal --title=Actualizar-ejemplos-Ansible -e /home/kasm-user/update_ejemplos_ansible.sh\nIcon=/opt/icons/ansible.svg\nTerminal=false\nCategories=Development;IDE;\n' \
+      > /home/kasm-default-profile/Desktop/ansible-update.desktop && \
+    chmod +x /home/kasm-default-profile/Desktop/ansible-update.desktop && \
+    chown -R 1000:0 /home/kasm-default-profile/Desktop
+
+# Docker desktop shortcut updates docker-twitch and opens the compose lab menu.
+COPY ./src/common/resources/images/docker-mark.png /opt/icons/docker-mark.png
+COPY ./src/common/resources/launch_docker_twitch.sh /home/kasm-default-profile/launch_docker_twitch.sh
+COPY ./scripts/ansible-resolute-dind/docker-twitch.desktop /home/kasm-default-profile/Desktop/docker-twitch.desktop
+RUN chmod 755 /home/kasm-default-profile/launch_docker_twitch.sh /home/kasm-default-profile/Desktop/docker-twitch.desktop && \
+    chown 1000:0 /home/kasm-default-profile/launch_docker_twitch.sh /home/kasm-default-profile/Desktop/docker-twitch.desktop /opt/icons/docker-mark.png
+
+# IntelliJ project launcher.
+RUN printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=IntelliJ IDEA\nExec=/opt/intellij/bin/idea.sh /home/kasm-user/ejemplos-ansible\nIcon=/opt/intellij/bin/idea.png\nTerminal=false\nCategories=Development;IDE;\n' \
+      > /home/kasm-default-profile/Desktop/intellij-ansible.desktop && \
+    chmod +x /home/kasm-default-profile/Desktop/intellij-ansible.desktop && \
+    chown -R 1000:0 /home/kasm-default-profile/Desktop
+
+ENV HOME=/home/kasm-user
+WORKDIR $HOME
+USER 1000
+
+CMD ["--tail-log"]

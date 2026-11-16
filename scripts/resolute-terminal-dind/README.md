@@ -19,6 +19,9 @@ instalado dentro del contenedor** (Docker-in-Docker), para poder ejecutar
 - Ansible
 - Repositorio de ejemplos `docker-twitch` clonado en `~/docker-twitch`
   (común a todas las imágenes DinD de este repo)
+- Script `~/launch_docker_twitch.sh`: hace `git pull` de `docker-twitch` y muestra
+  un menú para lanzar un laboratorio con docker compose (sin icono, esta imagen
+  no tiene escritorio)
 
 ## Requisito importante: `--privileged`
 

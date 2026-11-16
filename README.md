@@ -77,6 +77,7 @@ for the Ubuntu 26.04 variant) with the same five commands: `build.sh`, `run.sh`,
 | `scripts/resolute-java-ciberseguridad-dind` | `pepesan/mi-ubuntu-resolute-kasm-java-ciberseguridad-dind` | 6910 |
 | `scripts/go-resolute` | `pepesan/mi-ubuntu-resolute-kasm-go` | 6911 |
 | `scripts/python-resolute` | `pepesan/mi-ubuntu-resolute-kasm-python` | 6912 |
+| `scripts/angular-resolute` | `pepesan/mi-ubuntu-resolute-kasm-angular:1.2` | 6922 |
 | `scripts/resolute-terminal` | `pepesan/mi-ubuntu-resolute-kasm-terminal` | 6919 |
 | `scripts/resolute-terminal-dind` | `pepesan/mi-ubuntu-resolute-kasm-terminal-dind` | 6920 |
 

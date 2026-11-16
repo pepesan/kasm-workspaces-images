@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-terminal-dind"
-IMAGE_TAG="1.2"
+IMAGE_TAG="1.4"
 BASE_TAG="1.20"
 BASE_IMAGE="pepesan/core-ubuntu-resolute"
 DOCKERFILE="dockerfile-kasm-ubuntu-resolute-terminal-dind"

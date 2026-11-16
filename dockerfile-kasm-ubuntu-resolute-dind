@@ -27,6 +27,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # necesita una cuenta llamada kasm-user para poder añadirla al grupo docker
 # (a diferencia de jammy/noble, donde el core ya trae kasm-user creado).
 RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true
+RUN cp $STARTUPDIR/vnc_startup.sh $STARTUPDIR/vnc_startup_kasm.sh
+COPY ./src/ubuntu/install/dind/vnc_startup_privileged.sh $STARTUPDIR/vnc_startup.sh
+RUN chmod 755 $STARTUPDIR/vnc_startup.sh
 
 # Startup Scripts (soporte Docker-in-Docker)
 COPY ./src/ubuntu/install/dind/custom_startup.sh $STARTUPDIR/custom_startup.sh
@@ -53,6 +56,25 @@ RUN \
 RUN git clone https://github.com/pepesan/docker-twitch.git \
     /home/kasm-default-profile/docker-twitch && \
     chown -R 1000:0 /home/kasm-default-profile/docker-twitch
+
+# Script de lanzamiento de laboratorios docker-twitch: hace "git pull" del
+# repo y, si no se le indica laboratorio por argumento, muestra un menu
+# interactivo con las carpetas de docker-twitch/compose disponibles.
+COPY ./src/common/resources/launch_docker_twitch.sh /home/kasm-default-profile/launch_docker_twitch.sh
+RUN chmod +x /home/kasm-default-profile/launch_docker_twitch.sh && \
+    chown 1000:0 /home/kasm-default-profile/launch_docker_twitch.sh
+
+# Icono (ballena de Docker) para el lanzador de escritorio de docker-twitch.
+COPY ./src/common/resources/images/docker-mark.png /opt/icons/docker-mark.png
+RUN chown 1000:0 /opt/icons/docker-mark.png
+
+# Lanzador de escritorio para el script anterior: abre una terminal y ejecuta
+# el menu interactivo de laboratorios docker-twitch.
+RUN mkdir -p /home/kasm-default-profile/Desktop && \
+    printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Docker Twitch - Lanzar entorno\nComment=Actualiza docker-twitch y lanza un laboratorio docker compose\nExec=xfce4-terminal --title=docker-twitch -e /home/kasm-user/launch_docker_twitch.sh\nIcon=/opt/icons/docker-mark.png\nTerminal=false\nCategories=Development;\n' \
+    > /home/kasm-default-profile/Desktop/docker-twitch.desktop && \
+    chmod +x /home/kasm-default-profile/Desktop/docker-twitch.desktop && \
+    chown -R 1000:0 /home/kasm-default-profile/Desktop
 
 # Userspace Runtime
 ENV HOME /home/kasm-user

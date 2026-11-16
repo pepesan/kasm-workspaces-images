@@ -1,0 +1,71 @@
+ARG BASE_TAG="1.20"
+ARG BASE_IMAGE="pepesan/core-ubuntu-resolute"
+FROM $BASE_IMAGE:$BASE_TAG
+
+USER root
+
+ENV HOME=/home/kasm-default-profile \
+    STARTUPDIR=/dockerstartup \
+    DEBIAN_FRONTEND=noninteractive \
+    SKIP_CLEAN=true \
+    KASM_RX_HOME=/dockerstartup/kasmrx \
+    DONT_PROMPT_WSL_INSTALL=No_Prompt_please \
+    INST_DIR=/dockerstartup/install \
+    INST_SCRIPTS="/ubuntu/install/dind/install_dind_resolute.sh \
+                  /ubuntu/install/tools/install_tools_deluxe.sh \
+                  /ubuntu/install/misc/install_tools.sh \
+                  /ubuntu/install/chrome/install_chrome.sh \
+                  /ubuntu/install/firefox/install_firefox.sh \
+                  /ubuntu/install/cleanup/cleanup.sh"
+WORKDIR $HOME
+
+# The Resolute base uses UID 1000 for ubuntu; DinD setup also requires kasm-user.
+RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true
+
+COPY ./src/ubuntu/install/dind/custom_startup.sh $STARTUPDIR/custom_startup_dind.sh
+COPY ./scripts/jupyter-resolute-dind/custom_startup.sh $STARTUPDIR/custom_startup.sh
+RUN chmod 755 $STARTUPDIR/custom_startup.sh $STARTUPDIR/custom_startup_dind.sh
+COPY ./src/ubuntu/install/dind/daemon.json /etc/docker/daemon.json
+COPY ./src/ubuntu/ $INST_DIR/ubuntu/
+
+RUN set -eux; \
+    for SCRIPT in $INST_SCRIPTS; do bash "${INST_DIR}${SCRIPT}"; done; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends python3 python3-venv; \
+    python3 -m venv /opt/jupyter; \
+    /opt/jupyter/bin/pip install --no-cache-dir notebook ipykernel pandas matplotlib openpyxl scipy scikit-learn; \
+    JUPYTER_ICON="$(find /opt/jupyter/share/icons -type f -path '*/hicolor/scalable/apps/notebook.svg' -print -quit)"; \
+    test -n "$JUPYTER_ICON"; \
+    install -D "$JUPYTER_ICON" /opt/icons/jupyter-notebook.svg; \
+    chmod 644 /opt/icons/jupyter-notebook.svg; \
+    $STARTUPDIR/set_user_permission.sh $HOME; \
+    rm -f /etc/X11/xinit/Xclients; \
+    mkdir -p /home/kasm-user; \
+    chown -R 1000:0 $HOME /home/kasm-user /opt/jupyter; \
+    rm -rf "$INST_DIR" /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Keep the Docker-Twitch repository in the default user profile and refresh it
+# when the lab launcher is used.
+ARG REPOS_REV=0
+RUN echo "docker-twitch revision ${REPOS_REV}" && \
+    git clone https://github.com/pepesan/docker-twitch.git $HOME/docker-twitch && \
+    chown -R 1000:0 $HOME/docker-twitch
+
+COPY ./src/common/resources/launch_docker_twitch.sh $HOME/launch_docker_twitch.sh
+COPY ./src/common/resources/images/docker-mark.png /opt/icons/docker-mark.png
+COPY ./scripts/jupyter-resolute-dind/start_jupyter.sh $HOME/start_jupyter.sh
+RUN chmod 755 $HOME/launch_docker_twitch.sh $HOME/start_jupyter.sh && \
+    mkdir -p $HOME/Desktop && \
+    printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Docker Twitch - Lanzar entorno\nComment=Actualiza docker-twitch y lanza un laboratorio Docker Compose\nExec=xfce4-terminal --title=docker-twitch -e /home/kasm-user/launch_docker_twitch.sh\nIcon=/opt/icons/docker-mark.png\nTerminal=false\nCategories=Development;\n' > $HOME/Desktop/docker-twitch.desktop && \
+    printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Jupyter Notebook\nComment=Inicia Jupyter Notebook en el puerto 8888\nExec=xfce4-terminal --title=jupyter-notebook -e /home/kasm-user/start_jupyter.sh\nIcon=/opt/icons/jupyter-notebook.svg\nTerminal=false\nCategories=Development;Education;\n' > $HOME/Desktop/jupyter-notebook.desktop && \
+    chmod 755 $HOME/Desktop/*.desktop && \
+    chown -R 1000:0 $HOME/Desktop $HOME/launch_docker_twitch.sh $HOME/start_jupyter.sh /opt/icons/docker-mark.png /opt/icons/jupyter-notebook.svg
+COPY ./src/ubuntu/install/dind/dockerd.conf /etc/supervisor/conf.d/
+RUN cp $STARTUPDIR/vnc_startup.sh $STARTUPDIR/vnc_startup_kasm.sh
+COPY ./src/ubuntu/install/dind/vnc_startup_privileged.sh $STARTUPDIR/vnc_startup.sh
+RUN chmod 755 $STARTUPDIR/vnc_startup.sh
+
+ENV HOME=/home/kasm-user
+WORKDIR $HOME
+USER 1000
+CMD ["--tail-log"]
