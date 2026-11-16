@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Docker Twitch - Lanzar entorno
+Comment=Actualiza docker-twitch y permite seleccionar un laboratorio Docker Compose
+Exec=xfce4-terminal --title=docker-twitch -e /home/kasm-user/launch_docker_twitch.sh
+Icon=/opt/icons/docker-mark.png
+Terminal=false
+Categories=Development;System;

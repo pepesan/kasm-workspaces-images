@@ -2,6 +2,9 @@ ARG BASE_TAG="develop"
 ARG BASE_IMAGE="core-ubuntu-jammy"
 FROM kasmweb/$BASE_IMAGE:$BASE_TAG
 USER root
+RUN cp $STARTUPDIR/vnc_startup.sh $STARTUPDIR/vnc_startup_kasm.sh
+COPY ./src/ubuntu/install/dind/vnc_startup_privileged.sh /dockerstartup/vnc_startup.sh
+RUN chmod 755 /dockerstartup/vnc_startup.sh
 
 ENV HOME /home/kasm-default-profile
 ENV STARTUPDIR /dockerstartup

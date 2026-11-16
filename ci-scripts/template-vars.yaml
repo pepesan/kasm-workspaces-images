@@ -200,6 +200,7 @@ multiImages:
     changeFiles:
       - dockerfile-kasm-redroid
       - src/ubuntu/install/redroid/**
+      - src/ubuntu/install/dind/**
       - src/ubuntu/install/android_studio/**
       - src/ubuntu/install/misc/**
       - src/ubuntu/install/sublime_text/**
@@ -720,6 +721,20 @@ multiImages:
       - src/ubuntu/install/cleanup/**
       - src/ubuntu/install/chromium/**
       - src/ubuntu/install/chrome/**
+  - name: ubuntu-resolute-desktop-jupyter-dind
+    runset: set-a
+    singleapp: false
+    base: core-ubuntu-resolute
+    dockerfile: dockerfile-kasm-ubuntu-resolute-desktop-jupyter-dind
+    changeFiles:
+      - dockerfile-kasm-ubuntu-resolute-desktop-jupyter-dind
+      - scripts/jupyter-resolute-dind/**
+      - src/ubuntu/install/dind/**
+      - src/ubuntu/install/tools/**
+      - src/ubuntu/install/misc/**
+      - src/ubuntu/install/chrome/**
+      - src/ubuntu/install/firefox/**
+      - src/ubuntu/install/cleanup/**
   - name: ubuntu-resolute-desktop-angular
     runset: set-b
     singleapp: false

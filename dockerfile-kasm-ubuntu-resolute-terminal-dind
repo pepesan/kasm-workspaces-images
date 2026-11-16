@@ -25,6 +25,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # necesita una cuenta llamada kasm-user para poder añadirla al grupo docker
 # (mismo useradd que el resto de variantes DinD de Resolute).
 RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true
+RUN cp $STARTUPDIR/vnc_startup.sh $STARTUPDIR/vnc_startup_kasm.sh
+COPY ./src/ubuntu/install/dind/vnc_startup_privileged.sh $STARTUPDIR/vnc_startup.sh
+RUN chmod 755 $STARTUPDIR/vnc_startup.sh
 
 RUN apt-get update && apt-get install -y tmux screen nano dnsutils zip
 
@@ -73,6 +76,15 @@ RUN cp $HOME/.config/xfce4/xfconf/single-application-xfce-perchannel-xml/* $HOME
 RUN git clone https://github.com/pepesan/docker-twitch.git \
     /home/kasm-default-profile/docker-twitch && \
     chown -R 1000:0 /home/kasm-default-profile/docker-twitch
+
+# Script de lanzamiento de laboratorios docker-twitch: hace "git pull" del
+# repo y, si no se le indica laboratorio por argumento, muestra un menu
+# interactivo con las carpetas de docker-twitch/compose disponibles. Esta
+# imagen no tiene escritorio, asi que no lleva icono: se ejecuta desde la
+# terminal con ~/launch_docker_twitch.sh
+COPY ./src/common/resources/launch_docker_twitch.sh /home/kasm-default-profile/launch_docker_twitch.sh
+RUN chmod +x /home/kasm-default-profile/launch_docker_twitch.sh && \
+    chown 1000:0 /home/kasm-default-profile/launch_docker_twitch.sh
 
 # Userspace Runtime
 ENV HOME /home/kasm-user

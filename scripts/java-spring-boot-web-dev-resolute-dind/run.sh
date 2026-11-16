@@ -7,7 +7,7 @@ set -e
 # ============================================
 DOCKER_USER="pepesan"
 IMAGE_NAME="${DOCKER_USER}/mi-ubuntu-resolute-kasm-java-spring-boot-web-dev-dind"
-IMAGE_TAG="1.7"
+IMAGE_TAG="1.8"
 # Contraseña VNC: NO se guarda en el repo. Exportar antes de arrancar:
 #   export KASM_USER_PASSWORD="..."   (por defecto: sta3war2)
 VNC_PASSWORD="${KASM_USER_PASSWORD:-sta3war2}"
@@ -42,7 +42,6 @@ fi
 # Lanzar contenedor (--privileged: imprescindible para Docker-in-Docker)
 docker run -d \
   --privileged \
-  -v /dev/null:/dev/dri/renderD128 \
   --name "${CONTAINER_NAME}" \
   --shm-size=512m \
   -e VNC_PW="${VNC_PASSWORD}" \

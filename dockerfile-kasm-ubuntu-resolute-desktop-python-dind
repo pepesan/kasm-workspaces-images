@@ -18,8 +18,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
                   /ubuntu/install/tools/install_tools_deluxe.sh \
                   /ubuntu/install/misc/install_tools.sh \
                   /ubuntu/install/chrome/install_chrome.sh \
-                  /ubuntu/install/chromium/install_chromium.sh \
-                  /ubuntu/install/vs_code/install_vs_code.sh"
+                  /ubuntu/install/chromium/install_chromium.sh"
 
 # El uid 1000 de esta base ya lo ocupa "ubuntu"; install_dind_resolute.sh
 # necesita una cuenta llamada kasm-user para poder añadirla al grupo docker.
@@ -27,7 +26,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # la cuenta ya existe (useradd ... || true) — solo fija la contraseña.
 RUN useradd -m -s /bin/bash kasm-user 2>/dev/null || true
 
-# Startup Scripts (soporte Docker-in-Docker)
+# Preserve Kasm's startup and disable only its privileged VNC GPU renderer.
+RUN cp $STARTUPDIR/vnc_startup.sh $STARTUPDIR/vnc_startup_kasm.sh
+COPY ./src/ubuntu/install/dind/vnc_startup_privileged.sh $STARTUPDIR/vnc_startup.sh
+RUN chmod 755 $STARTUPDIR/vnc_startup.sh
 COPY ./src/ubuntu/install/dind/custom_startup.sh $STARTUPDIR/custom_startup.sh
 RUN chmod 755 $STARTUPDIR/custom_startup.sh
 COPY ./src/ubuntu/install/dind/dockerd.conf /etc/supervisor/conf.d/
@@ -96,13 +98,6 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH=$PATH:/home/kasm-user/.local/bin
 # =========================================================
 
-# Instalar extensión oficial de Python en VS Code (para el perfil por defecto)
-RUN mkdir -p /home/kasm-default-profile/.vscode/extensions && \
-    HOME=/home/kasm-default-profile code --install-extension ms-python.python \
-      --no-sandbox \
-      --extensions-dir /home/kasm-default-profile/.vscode/extensions \
-      --user-data-dir /home/kasm-default-profile/.vscode/user-data 2>/dev/null || true && \
-    chown -R 1000:0 /home/kasm-default-profile/.vscode
 
 # ====== INSTALAR PYCHARM (ultima release) ======
 # Nota: JetBrains dejo de publicar builds separados para "Community" (code=PCC)
@@ -213,6 +208,18 @@ RUN mkdir -p /home/kasm-default-profile/Desktop && \
     > /home/kasm-default-profile/Desktop/docker-twitch.desktop && \
     chmod +x /home/kasm-default-profile/Desktop/docker-twitch.desktop && \
     chown -R 1000:0 /home/kasm-default-profile/Desktop
+
+# Instalar VS Code al final para que cambios en este instalador no reconstruyan
+# las capas previas. Se reutiliza el instalador compartido de la imagen.
+COPY ./src/ubuntu/install/vs_code/install_vs_code.sh /tmp/install_vs_code.sh
+RUN bash /tmp/install_vs_code.sh && \
+    mkdir -p /home/kasm-default-profile/.vscode/extensions && \
+    HOME=/home/kasm-default-profile code --install-extension ms-python.python \
+      --no-sandbox \
+      --extensions-dir /home/kasm-default-profile/.vscode/extensions \
+      --user-data-dir /home/kasm-default-profile/.vscode/user-data && \
+    chown -R 1000:0 /home/kasm-default-profile/.vscode && \
+    rm -f /tmp/install_vs_code.sh
 
 # Userspace Runtime
 ENV HOME /home/kasm-user
